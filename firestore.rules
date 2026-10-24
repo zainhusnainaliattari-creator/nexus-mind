@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidMindmap(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('theme' in data) || (data.theme is string && data.theme.size() <= 40)) &&
+             (!('subject' in data) || (data.subject is string && data.subject.size() <= 50)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('nodeCount' in data) || data.nodeCount is int) &&
+             (!('isFavorite' in data) || data.isFavorite is bool) &&
+             (!('layoutType' in data) || (data.layoutType is string && data.layoutType.size() <= 30)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidNode(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+             data.mindmapId is string && data.mindmapId.size() >= 1 && data.mindmapId.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             (!('parentId' in data) || (data.parentId is string && data.parentId.size() <= 128)) &&
+             (!('notesMarkdown' in data) || (data.notesMarkdown is string && data.notesMarkdown.size() <= 20000)) &&
+             (!('posX' in data) || data.posX is number) &&
+             (!('posY' in data) || data.posY is number) &&
+             (!('colorHex' in data) || (data.colorHex is string && data.colorHex.size() <= 20)) &&
+             (!('shape' in data) || (data.shape is string && data.shape.size() <= 30)) &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 50)) &&
+             (!('mastery' in data) || (data.mastery is string && data.mastery in ['unlearned', 'learning', 'mastered'])) &&
+             (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() <= 50)) &&
+             (!('priority' in data) || (data.priority is string && data.priority in ['low', 'medium', 'high'])) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 20)) &&
+             (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 30)) &&
+             (!('crossLinks' in data) || (data.crossLinks is list && data.crossLinks.size() <= 50)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoom(data) {
+      return data.roomId is string && data.roomId.size() >= 1 && data.roomId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             data.creatorId is string && data.creatorId.size() <= 128 &&
+             (!('creatorName' in data) || (data.creatorName is string && data.creatorName.size() <= 100)) &&
+             data.memberUids is list && data.memberUids.size() <= 50 &&
+             (!('activeMindmapJson' in data) || (data.activeMindmapJson is string && data.activeMindmapJson.size() <= 500000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidComment(data) {
+      return data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+             data.roomId is string && data.roomId.size() >= 1 && data.roomId.size() <= 128 &&
+             data.authorId is string && data.authorId == request.auth.uid &&
+             (!('authorName' in data) || (data.authorName is string && data.authorName.size() <= 100)) &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 2000 &&
+             (!('nodeId' in data) || (data.nodeId is string && data.nodeId.size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // User personal mindmaps
+    match /users/{userId}/mindmaps/{mindmapId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                       isValidId(mindmapId) &&
+                       isValidMindmap(incoming());
+
+      allow update: if isSignedIn() && request.auth.uid == userId &&
+                       isValidId(mindmapId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidMindmap(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'description', 'theme', 'subject', 'tags',
+                         'nodeCount', 'isFavorite', 'layoutType', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+      // Nodes inside mindmap
+      match /nodes/{nodeId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() && request.auth.uid == userId &&
+                         isValidId(nodeId) &&
+                         isValidNode(incoming());
+
+        allow update: if isSignedIn() && request.auth.uid == userId &&
+                         isValidId(nodeId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().mindmapId == existing().mindmapId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidNode(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'parentId', 'title', 'notesMarkdown', 'posX', 'posY',
+                           'colorHex', 'shape', 'icon', 'mastery', 'dueDate',
+                           'priority', 'tags', 'attachments', 'crossLinks', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // Shared real-time study rooms
+    match /collaborative_rooms/{roomId} {
+      allow get: if isSignedIn() && (
+        resource == null ||
+        request.auth.uid in existing().memberUids ||
+        request.auth.uid == existing().creatorId
+      );
+
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().creatorId == request.auth.uid &&
+                       request.auth.uid in incoming().memberUids &&
+                       isValidRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       (request.auth.uid in existing().memberUids || request.auth.uid == existing().creatorId) &&
+                       incoming().creatorId == existing().creatorId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidRoom(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'memberUids', 'activeMindmapJson', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && request.auth.uid == existing().creatorId;
+
+      // Comments inside collaborative rooms
+      match /comments/{commentId} {
+        allow get, list: if isSignedIn();
+
+        allow create: if isSignedIn() &&
+                         isValidId(commentId) &&
+                         isValidComment(incoming());
+
+        allow update: if false;
+
+        allow delete: if isSignedIn() && request.auth.uid == existing().authorId;
+      }
+    }
+  }
+}

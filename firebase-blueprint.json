@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "Mindmap": {
+      "title": "Mindmap",
+      "description": "A student mindmap container with nodes, themes, and course metadata",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner user UID" },
+        "title": { "type": "string", "description": "Mindmap title" },
+        "description": { "type": "string", "description": "Short description or syllabus summary" },
+        "theme": { "type": "string", "description": "Theme palette name (obsidian, dracula, etc)" },
+        "subject": { "type": "string", "description": "Academic course or subject code" },
+        "tags": { "type": "array", "description": "Category tags" },
+        "nodeCount": { "type": "integer", "description": "Number of nodes in the map" },
+        "isFavorite": { "type": "boolean", "description": "Bookmarked favorite" },
+        "layoutType": { "type": "string", "description": "Layout mode (tree, radial, force, freeform)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": ["userId", "title", "createdAt", "updatedAt"]
+    },
+    "MindmapNode": {
+      "title": "MindmapNode",
+      "description": "An interactive concept node in the mindmap with rich notes and attachments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Node unique ID" },
+        "mindmapId": { "type": "string", "description": "Parent mindmap document ID" },
+        "userId": { "type": "string", "description": "Owner user UID" },
+        "parentId": { "type": "string", "description": "Parent node ID in hierarchy" },
+        "title": { "type": "string", "description": "Node concept title" },
+        "notesMarkdown": { "type": "string", "description": "Markdown formatted rich notes and formulas" },
+        "posX": { "type": "number", "description": "Canvas X coordinate" },
+        "posY": { "type": "number", "description": "Canvas Y coordinate" },
+        "colorHex": { "type": "string", "description": "Custom node accent color hex" },
+        "shape": { "type": "string", "description": "Node shape" },
+        "icon": { "type": "string", "description": "Icon or emoji badge" },
+        "mastery": { "type": "string", "description": "Student mastery level (unlearned, learning, mastered)" },
+        "dueDate": { "type": "string", "description": "Assignment or exam due date" },
+        "priority": { "type": "string", "description": "Study priority (low, medium, high)" },
+        "tags": { "type": "array", "description": "Node tags" },
+        "attachments": { "type": "array", "description": "Media attachments metadata" },
+        "crossLinks": { "type": "array", "description": "Connected cross-linking node IDs" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["id", "mindmapId", "userId", "title", "createdAt", "updatedAt"]
+    },
+    "CollaborativeRoom": {
+      "title": "CollaborativeRoom",
+      "description": "Real-time shared study room for peer collaboration",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "description": "Room invite code or ID" },
+        "title": { "type": "string", "description": "Study session title" },
+        "creatorId": { "type": "string", "description": "Creator user UID" },
+        "creatorName": { "type": "string", "description": "Creator display name" },
+        "memberUids": { "type": "array", "description": "Active participant user UIDs" },
+        "activeMindmapJson": { "type": "string", "description": "Serialized shared mindmap data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last sync timestamp" }
+      },
+      "required": ["roomId", "title", "creatorId", "memberUids", "createdAt", "updatedAt"]
+    },
+    "RoomComment": {
+      "title": "RoomComment",
+      "description": "Collaborator comment and discussion item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Comment ID" },
+        "roomId": { "type": "string", "description": "Room ID" },
+        "authorId": { "type": "string", "description": "Author UID" },
+        "authorName": { "type": "string", "description": "Author name" },
+        "content": { "type": "string", "description": "Comment text" },
+        "nodeId": { "type": "string", "description": "Referenced node ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Comment timestamp" }
+      },
+      "required": ["id", "roomId", "authorId", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/mindmaps/{mindmapId}": {
+      "schema": { "$ref": "#/entities/Mindmap" },
+      "description": "User personal mindmaps"
+    },
+    "/users/{userId}/mindmaps/{mindmapId}/nodes/{nodeId}": {
+      "schema": { "$ref": "#/entities/MindmapNode" },
+      "description": "Individual nodes within a mindmap"
+    },
+    "/collaborative_rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/CollaborativeRoom" },
+      "description": "Real-time shared study spaces"
+    },
+    "/collaborative_rooms/{roomId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/RoomComment" },
+      "description": "Study room comments and feedback"
+    }
+  }
+}

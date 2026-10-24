@@ -1,0 +1,6 @@
+{
+  "name": "MindNexus",
+  "description": "Node-based mind mapping tool with real-time sync, offline backups, AI generators, vector retrieval, and student study tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
